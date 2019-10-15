@@ -1,4 +1,6 @@
 import React, {Component} from 'react';
+import {KeyBoard, ActivityIndicator} from 'react-native';
+import AsyncStorage from '@react-native-community/async-storage';
 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import api from '../../services/api';
@@ -21,10 +23,27 @@ export default class Main extends Component {
   state = {
     newUser: '',
     users: [],
+    loading: false,
   };
+
+  async componentDidMount() {
+    const users = await AsyncStorage.getItem('users');
+    if (users) {
+      this.setState({users: JSON.parse(users)});
+    }
+  }
+
+  async componentDidUpdate(_, prevState) {
+    const {users} = this.state;
+    if (prevState.users !== users) {
+      AsyncStorage.setItem('users', JSON.stringify(users));
+    }
+  }
 
   handleAddUser = async () => {
     const {users, newUser} = this.state;
+
+    this.setState({loading: true});
 
     const response = await api.get(`/users/${newUser}`);
 
@@ -38,11 +57,13 @@ export default class Main extends Component {
     this.setState({
       users: [...users, data],
       newUser: '',
+      loading: false,
     });
+    KeyBoard.dismiss();
   };
 
   render() {
-    const {users, newUser} = this.state;
+    const {users, newUser, loading} = this.state;
 
     return (
       <Container>
@@ -56,13 +77,17 @@ export default class Main extends Component {
             returnKeyType="send"
             onSubmitEditing={this.handleAddUser}
           />
-          <SubmitButton onPress={this.handleAddUser}>
-            <Icon name="add" size={20} color="#FFF" />
+          <SubmitButton loading={loading} onPress={this.handleAddUser}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Icon name="add" size={20} color="#FFF" />
+            )}
           </SubmitButton>
         </Form>
         <List
           data={users}
-          KeyExtractor={user => user.login}
+          keyExtractor={user => String(user.login)}
           renderItem={({item}) => (
             <User>
               <Avatar source={{uri: item.avatar}} />
